@@ -21,7 +21,7 @@ async function main() {
 	try {
 		await client.connect();
 		console.log('Connected to MongoDB Atlas');
-		// Keep the connection open here
+
 		app.locals.client = client;
 	} catch (e) {
 		console.error('Error connecting to MongoDB Atlas:', e);
@@ -40,9 +40,6 @@ const transporter = nodemailer.createTransport({
 	},
 });
 
-//API Routes
-app.get('/', (req, res) => res.json({ message: 'Hello World!' }));
-
 const multer = require('multer');
 const storage = multer.diskStorage({
 	destination: (req, file, cb) => {
@@ -60,6 +57,9 @@ cloudinary.config({
 	api_key: '297153838963993',
 	api_secret: 'gVnd-ifaeI8YsiB4F2hruEtoZwQ',
 });
+
+//API Routes
+app.get('/', (req, res) => res.json({ message: 'Hello World!' }));
 
 app.post('/uploadExcelFile', upload.single('uploadfile'), async (req, res) => {
 	try {
@@ -150,7 +150,7 @@ app.delete('/deleteFile/:fileId', async (req, res) => {
 	}
 });
 
-//Trello routes
+//Paddlet routes
 app.post('/api/boards', async (req, res) => {
 	try {
 		const { name, gradient } = req.body;
@@ -237,7 +237,6 @@ app.get('/api/boards/:id', async (req, res) => {
 			return res.status(404).json({ error: 'Board not found' });
 		}
 
-		// Since the board document already contains list IDs, you can directly include them in the response
 		res.json(board);
 	} catch (error) {
 		console.error('Error retrieving board:', error);
@@ -365,11 +364,10 @@ app.post('/api/lists/new', async (req, res) => {
 			return res.status(404).json({ error: 'Board not found' });
 		}
 
-		// Get the current lists for the board and determine the position for the new list
 		const currentLists = await listsCollection
 			.find({ _id: { $in: board.lists } })
 			.toArray();
-		const newPosition = currentLists.length + 1; // Position is one more than the current number of lists
+		const newPosition = currentLists.length + 1;
 
 		// Insert the new list with the title, boardId, and position
 		const result = await listsCollection.insertOne({
@@ -574,7 +572,6 @@ app.put('/api/lists/:listId/position', async (req, res) => {
 app.post('/api/cards', async (req, res) => {
 	try {
 		const { listId, title, description, url } = req.body;
-		// Check if listId is provided
 		if (!listId) {
 			return res.status(400).json({ error: 'List ID is required' });
 		}
@@ -582,7 +579,6 @@ app.post('/api/cards', async (req, res) => {
 		const db = req.app.locals.client.db('curriculums');
 		const cardsCollection = db.collection('cards');
 
-		// Insert the new card into the database
 		const result = await cardsCollection.insertOne({
 			listId,
 			title,
@@ -608,7 +604,6 @@ app.get('/api/cards', async (req, res) => {
 
 		const cards = await cardsCollection.find({}).toArray();
 
-		// Return the fetched cards
 		res.json(cards);
 	} catch (error) {
 		console.error('Error fetching cards:', error);
@@ -620,7 +615,6 @@ app.get('/api/cards/:id', async (req, res) => {
 	try {
 		const { id } = req.params;
 
-		// Validate the ID format
 		if (!ObjectId.isValid(id)) {
 			return res.status(400).json({ error: 'Invalid card ID' });
 		}
@@ -628,14 +622,12 @@ app.get('/api/cards/:id', async (req, res) => {
 		const db = req.app.locals.client.db('curriculums');
 		const cardsCollection = db.collection('cards');
 
-		// Find the card by ID
 		const card = await cardsCollection.findOne({ _id: new ObjectId(id) });
 
 		if (!card) {
 			return res.status(404).json({ error: 'Card not found' });
 		}
 
-		// Return the fetched card
 		res.json(card);
 	} catch (error) {
 		console.error('Error fetching card by ID:', error);
@@ -647,7 +639,6 @@ app.delete('/api/cards/:id', async (req, res) => {
 	try {
 		const { id } = req.params;
 
-		// Validate the ID format
 		if (!ObjectId.isValid(id)) {
 			return res.status(400).json({ error: 'Invalid card ID' });
 		}
@@ -655,14 +646,12 @@ app.delete('/api/cards/:id', async (req, res) => {
 		const db = req.app.locals.client.db('curriculums');
 		const cardsCollection = db.collection('cards');
 
-		// Delete the card by ID
 		const result = await cardsCollection.deleteOne({ _id: new ObjectId(id) });
 
 		if (result.deletedCount === 0) {
 			return res.status(404).json({ error: 'Card not found' });
 		}
 
-		// Return success message
 		res.json({ message: 'Card deleted successfully' });
 	} catch (error) {
 		console.error('Error deleting card by ID:', error);
@@ -681,7 +670,6 @@ app.put(
 			const { id } = req.params;
 			const { title, description } = req.body;
 
-			// Validate the ID format
 			if (!ObjectId.isValid(id)) {
 				return res.status(400).json({ error: 'Invalid card ID' });
 			}
@@ -689,18 +677,16 @@ app.put(
 			const db = req.app.locals.client.db('curriculums');
 			const cardsCollection = db.collection('cards');
 
-			// Update the card by ID
 			let updateFields = { title, description };
 
 			if (req.files['cardFile'] && req.files['cardFile'][0]) {
 				const cardFile = req.files['cardFile'][0];
 				const result = await cloudinary.uploader.upload(cardFile.path, {
 					resource_type: 'raw',
-					public_id: cardFile.originalname || 'default_name', // Use default name if originalname is undefined
+					public_id: cardFile.originalname || 'default_name',
 					filename: title,
 				});
 				updateFields.cardUrl = result.secure_url;
-				// Delete the card file from the upload directory
 				fs.unlink(cardFile.path, (err) => {
 					if (err) {
 						console.error('Error deleting card file:', err);
@@ -714,11 +700,10 @@ app.put(
 				const mediaFile = req.files['mediaFile'][0];
 				const result = await cloudinary.uploader.upload(mediaFile.path, {
 					resource_type: 'auto',
-					public_id: mediaFile.originalname || 'default_name', // Use default name if originalname is undefined
+					public_id: mediaFile.originalname || 'default_name',
 					imagename: title,
 				});
 				updateFields.mediaUrl = result.secure_url;
-				// Delete the media file from the upload directory
 				fs.unlink(mediaFile.path, (err) => {
 					if (err) {
 						console.error('Error deleting media file:', err);
@@ -730,14 +715,13 @@ app.put(
 
 			const result = await cardsCollection.updateOne(
 				{ _id: new ObjectId(id) },
-				{ $set: updateFields } // Update fields as needed
+				{ $set: updateFields }
 			);
 
 			if (result.modifiedCount === 0) {
 				return res.status(404).json({ error: 'Card not found' });
 			}
 
-			// Return success message
 			res.json({ message: 'Card updated successfully', data: result });
 		} catch (error) {
 			console.error('Error updating card by ID:', error);
@@ -751,12 +735,9 @@ app.delete('/api/delete/cards', async (req, res) => {
 		const db = req.app.locals.client.db('curriculums');
 		const cardsCollection = db.collection('cards');
 
-		// Delete all documents in the card collection
 		const result = await cardsCollection.deleteMany({});
 
-		// Check if any documents were deleted
 		if (result.deletedCount > 0) {
-			// Return success message
 			res.json({ message: 'All cards deleted successfully' });
 		} else {
 			res.status(404).json({ error: 'No cards found to delete' });
@@ -772,7 +753,6 @@ app.get('/api/cards/list/:listId', async (req, res) => {
 	try {
 		const { listId } = req.params;
 
-		// Validate the listId format
 		if (!ObjectId.isValid(listId)) {
 			return res.status(400).json({ error: 'Invalid list ID' });
 		}
@@ -780,10 +760,8 @@ app.get('/api/cards/list/:listId', async (req, res) => {
 		const db = req.app.locals.client.db('curriculums');
 		const cardsCollection = db.collection('cards');
 
-		// Find cards by listId
 		const cards = await cardsCollection.find({ listId }).toArray();
 
-		// Return the fetched cards
 		res.json(cards);
 	} catch (error) {
 		res.status(500).json({ error: 'Internal server error' });
@@ -796,12 +774,10 @@ app.post('/api/cards/move/:cardId', async (req, res) => {
 		const { cardId } = req.params;
 		const { newListId } = req.body;
 
-		// Validate incoming data
 		if (!cardId || !newListId) {
 			return res.status(400).json({ error: 'Incomplete data' });
 		}
 
-		// Update the card's listId in the database
 		const db = req.app.locals.client.db('curriculums');
 		const cardsCollection = db.collection('cards');
 
@@ -821,18 +797,16 @@ app.post('/api/cards/move/:cardId', async (req, res) => {
 //users
 app.post('/api/users', async (req, res) => {
 	try {
-		const db = req.app.locals.client.db('curriculums'); // Assuming 'curriculums' is your database name
-		const collection = db.collection('users'); // Create or access the 'users' collection
+		const db = req.app.locals.client.db('curriculums');
+		const collection = db.collection('users');
 		const userData = req.body;
 
-		// Extracting specific properties from nested objects in userData
 		const email_address = userData.data.email_addresses[0].email_address;
 		const first_name = userData.data.first_name;
 		const last_name = userData.data.last_name;
 		const username = userData.data.username;
 		const phone_number = userData.data.phone_numbers[0].phone_number;
 
-		// Creating a new object with the extracted properties
 		const userObject = {
 			email_address,
 			first_name,
@@ -841,7 +815,6 @@ app.post('/api/users', async (req, res) => {
 			phone_number,
 		};
 
-		// Insert the userObject into the 'users' collection
 		const result = await collection.insertOne(userObject);
 
 		res.status(201).json(result[0]);
@@ -853,13 +826,11 @@ app.post('/api/users', async (req, res) => {
 
 app.get('/api/users', async (req, res) => {
 	try {
-		const db = req.app.locals.client.db('curriculums'); // Assuming 'curriculums' is your database name
-		const collection = db.collection('users'); // Access the 'users' collection
+		const db = req.app.locals.client.db('curriculums');
+		const collection = db.collection('users');
 
-		// Query the 'users' collection to retrieve all user data
 		const userData = await collection.find({}).toArray();
 
-		// Send retrieved user data as response
 		res.json(userData);
 	} catch (error) {
 		console.error('Error retrieving user data:', error);
@@ -869,20 +840,17 @@ app.get('/api/users', async (req, res) => {
 
 app.get('/api/users/:id', async (req, res) => {
 	try {
-		const db = req.app.locals.client.db('curriculums'); // Assuming 'curriculums' is your database name
-		const collection = db.collection('users'); // Access the 'users' collection
+		const db = req.app.locals.client.db('curriculums');
+		const collection = db.collection('users');
 
-		const userId = req.params.id; // Get the user ID from the request parameters
+		const userId = req.params.id;
 
-		// Query the 'users' collection to find a user by ID
 		const user = await collection.findOne({ _id: userId });
 
 		if (!user) {
-			// If user is not found, return 404 status with a message
 			return res.status(404).json({ error: 'User not found' });
 		}
 
-		// Send the retrieved user data as response
 		res.json(user);
 	} catch (error) {
 		console.error('Error retrieving user data by ID:', error);
@@ -893,10 +861,9 @@ app.get('/api/users/:id', async (req, res) => {
 app.delete('/api/users/:id', async (req, res) => {
 	try {
 		const userId = req.params.id;
-		const db = req.app.locals.client.db('curriculums'); // Assuming 'curriculums' is your database name
-		const collection = db.collection('users'); // Access the 'users' collection
+		const db = req.app.locals.client.db('curriculums');
+		const collection = db.collection('users');
 
-		// Delete the user with the specified ID
 		const result = await collection.deleteOne({ _id: new ObjectId(userId) });
 
 		if (result.deletedCount === 1) {
@@ -920,7 +887,11 @@ app.post('/api/send-email', upload.single('image'), async (req, res) => {
 				.json({ error: 'Recipients and subject are required' });
 		}
 
-		const attachment = req.file ? req.file.buffer : null;
+		let attachment = null;
+		if (req.file) {
+			const filePath = req.file.path;
+			attachment = fs.readFileSync(filePath, { encoding: 'base64' });
+		}
 
 		const mailOptions = {
 			from: {
@@ -930,7 +901,14 @@ app.post('/api/send-email', upload.single('image'), async (req, res) => {
 			to: recipients,
 			subject: subject,
 			text: message,
-			attachments: [{ filename: 'image.png', content: attachment }],
+			attachments: [
+				{
+					filename: 'image.png',
+					content: attachment,
+					encoding: 'base64',
+					contentType: 'image/png',
+				},
+			],
 		};
 
 		await transporter.sendMail(mailOptions);
@@ -938,18 +916,6 @@ app.post('/api/send-email', upload.single('image'), async (req, res) => {
 		res.status(200).json({ message: 'Email sent successfully' });
 	} catch (error) {
 		console.error('Error sending email:', error);
-
-		// Check for specific error types and provide descriptive error messages
-		if (error.code === 'EENVELOPE') {
-			return res
-				.status(400)
-				.json({ error: 'Invalid email address in recipients list' });
-		} else if (error.code === 'EMESSAGE') {
-			return res
-				.status(400)
-				.json({ error: 'Error creating or sending email message' });
-		}
-
 		res
 			.status(500)
 			.json({ error: 'Error sending email. Please try again later.' });
